@@ -111,7 +111,7 @@ To stop the server: press **Ctrl+C** in the terminal.
 
 ---
 
-## Setup (reference)
+
 
 ### Clone and enter project
 
@@ -121,19 +121,6 @@ cd Empathy
 
 ### Create virtual environment
 
-```bash
-python -m venv venv
-# Windows
-venv\Scripts\activate
-# macOS/Linux
-source venv/bin/activate
-```
-
-### Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
 
 **Note:** For audio processing (MP3 export), [ffmpeg](https://ffmpeg.org/) is required. Either:
 - Add the **bin** folder (the one containing `ffmpeg.exe`) to your system PATH, e.g.  
@@ -141,32 +128,7 @@ pip install -r requirements.txt
 - Set the environment variable **FFMPEG_PATH** to that folder (or to the unpacked parent folder; the app will look for `bin/ffmpeg.exe`), then restart the server.  
 - On Windows you can use **run_server.bat**: edit the `FFMPEG_PATH` line to your ffmpeg `bin` path, then double‑click or run it. (Docker image includes ffmpeg.)
 
-### 4. (Optional) ElevenLabs
 
-To use ElevenLabs instead of gTTS:
-
-```bash
-set TTS_ENGINE=elevenlabs
-set ELEVENLABS_API_KEY=your_api_key
-```
-
-Add `elevenlabs>=1.0.0` to `requirements.txt` and install.
-
-## Usage
-
-### CLI (one-shot)
-
-```bash
-python -m app.main --text "Your order has been successfully delivered!"
-# Or from project root:
-python app/main.py --text "This is great news!"
-```
-
-Options:
-
-- `--output`, `-o`: Output file path
-- `--intensity`, `-i`: Emotion intensity 0.0–1.0 (default 1.0)
-- `--lang`, `-l`: Language code (default `en`)
 
 ### Start API server
 
@@ -263,25 +225,4 @@ project-root/
 └── README.md
 ```
 
-## Tests
 
-```bash
-pytest tests/ -v
-```
-
-## Docker
-
-```bash
-docker build -t empathy-engine .
-docker run -p 8000:8000 empathy-engine
-```
-
-Then open http://localhost:8000/ and use the API as above.
-
-## Logging
-
-Set `LOG_LEVEL` (e.g. `DEBUG`, `INFO`, `WARNING`) to control verbosity.
-
-## License
-
-MIT.
