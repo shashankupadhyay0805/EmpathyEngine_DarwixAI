@@ -2,15 +2,6 @@
 
 A Python service that converts text into **emotionally expressive speech** by detecting the emotion of the text and dynamically modifying voice parameters (pitch, rate, volume) of the text-to-speech output.
 
-## Core Functional Requirements (Must-Haves)
-
-| Requirement | Implementation |
-|-------------|-----------------|
-| **1. Text input** via CLI or API | **CLI:** `python -m app.main --text "Your text here"` (see `main.py` `cli()`, `run_pipeline(text)`). **API:** `POST /generate-voice` with JSON body `{"text": "Your text here"}` (see `main.py` `generate_voice`, `GenerateRequest`). |
-| **2. Emotion detection** — at least 3 categories (Positive/Happy, Negative/Frustrated, Neutral) | **`app/emotion_detector.py`:** `detect_emotion(text)` returns `EmotionResult` with `emotion` in `"happy"` \| `"frustrated"` \| `"neutral"`. Uses HuggingFace model (or VADER/TextBlob fallback). Config: `EMOTION_TO_CATEGORY` in `config.py`. |
-| **3. Vocal parameter modulation** — at least 2 distinct parameters (Rate, Pitch, Volume) | **`app/voice_mapper.py`:** `SpeechParams` has **pitch**, **rate**, **volume_db**. **`app/tts_engine.py`:** `_apply_params()` applies all three to the TTS output (pydub). |
-| **4. Emotion-to-voice mapping** — clear logic mapping emotion → vocal parameters | **`app/voice_mapper.py`:** `EMOTION_PARAMS` and `get_speech_params(emotion_result)` map each emotion to pitch/rate/volume (e.g. happy: +pitch, +rate, +volume; frustrated: −pitch, −rate, −volume; neutral: default). |
-| **5. Audio output** — playable audio file (.wav or .mp3) | **`app/tts_engine.py`:** `save_audio()` writes to `outputs/generated_audio/` in **.mp3** or **.wav** (format chosen by caller). API returns `audio_file` path; files are playable and served at `GET /audio/{filename}`. |
 
 ## Features
 
@@ -21,9 +12,7 @@ A Python service that converts text into **emotionally expressive speech** by de
 - **API**: FastAPI with `POST /generate-voice`
 - **CLI**: One-shot generation and optional server mode
 - **Web demo**: Simple HTML page at `/`
-- **Emotion intensity**: Optional scaling of emotion effect (0.0–1.0)
-- **Logging**: Configurable via `LOG_LEVEL`
-- **Docker**: Dockerfile for deployment
+
 
 ## Run on your local computer (complete steps)
 
