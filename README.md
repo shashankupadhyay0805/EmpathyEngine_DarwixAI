@@ -13,6 +13,28 @@ A Python service that converts text into **emotionally expressive speech** by de
 - **CLI**: One-shot generation and optional server mode
 - **Web demo**: Simple HTML page at `/`
 
+## Design choices
+
+- **Emotion detection pipeline**  
+  - Primary model: HuggingFace `j-hartmann/emotion-english-distilroberta-base`, which predicts fine‑grained labels such as joy, anger, sadness, fear, disgust, surprise, and neutral.  
+  - We map these raw labels to three evaluation‑friendly categories: **happy (Positive/Happy)**, **frustrated (Negative/Frustrated)**, and **neutral** using `EMOTION_TO_CATEGORY` in `config.py`.  
+  - If Transformers or GPU support is unavailable, the service transparently falls back to VADER and then TextBlob sentiment so the app still works, just with simpler positive/negative/neutral signals.
+
+- **Emotion → voice parameter mapping**  
+  - The mapping lives in `app/voice_mapper.py` via `EMOTION_PARAMS` and `get_speech_params()`.  
+  - Each emotion controls **three** vocal parameters:  
+    - **Pitch** (tonal height) as a multiplier on the base sample rate (e.g. 1.2 ≈ +20 %),  
+    - **Rate** (speech speed) via a playback‑speed‑like frame‑rate change,  
+    - **Volume** in decibels (**volume_db**) using pydub gain.  
+  - Example mappings:  
+    - **happy** → pitch 1.2, rate 1.1, volume_db +2.0 (brighter, faster, louder),  
+    - **frustrated** → pitch 0.9, rate 0.85, volume_db −2.0 (flatter, slower, quieter),  
+    - **neutral** → pitch 1.0, rate 1.0, volume_db 0.0 (baseline voice).  
+  - We also expose an **intensity** parameter (0.0–1.0). Intensity smoothly interpolates these values back toward neutral so the same text can be read slightly or strongly emotional without changing the code.
+
+- **TTS and audio processing**  
+  - We generate base speech with **gTTS** (or ElevenLabs if enabled) and then adjust pitch, rate, and volume with **pydub** so the emotion logic is engine‑agnostic.  
+  - Outputs are saved to `outputs/generated_audio/` as **.mp3** or **.wav**; both formats are playable and served via `GET /audio/{filename}`.
 
 ## Run on your local computer (complete steps)
 
