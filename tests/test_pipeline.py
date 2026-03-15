@@ -60,8 +60,9 @@ def test_run_pipeline_integration(tmp_path):
     from app.main import run_pipeline
 
     out = tmp_path / "test_out.mp3"
-    emotion, path = run_pipeline("Hello, world!", output_path=out, lang="en")
+    emotion, confidence, path = run_pipeline("Hello, world!", output_path=out, lang="en")
     assert emotion in ("happy", "frustrated", "neutral")
+    assert 0.0 <= confidence <= 1.0
     assert path == out
     assert out.exists()
     assert out.stat().st_size > 0
@@ -76,9 +77,19 @@ def test_run_pipeline_rejects_empty_text():
 
 
 def test_fastapi_app_structure():
-    """FastAPI app has required routes."""
+    """FastAPI app has required routes and returns expected fields."""
     from app.main import app
+    from fastapi.testclient import TestClient
 
     routes = [r.path for r in app.routes if hasattr(r, "path")]
     assert "/generate-voice" in routes
     assert "/" in routes
+
+    client = TestClient(app)
+    resp = client.post("/generate-voice", json={"text": "Hello!"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "emotion" in data
+    assert "confidence" in data
+    assert 0.0 <= data["confidence"] <= 1.0
+    assert "audio_file" in data

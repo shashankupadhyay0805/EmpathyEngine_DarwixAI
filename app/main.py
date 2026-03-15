@@ -22,12 +22,12 @@ def run_pipeline(
     intensity: float = 1.0,
     lang: str = "en",
     audio_format: str = "mp3",
-) -> tuple[str, Path]:
+) -> tuple[str, float, Path]:
     """
     Run the full pipeline: detect emotion, map to params, synthesize, save.
 
     Returns:
-        Tuple of (emotion_category, path_to_audio_file).
+        Tuple of (emotion_category, confidence, path_to_audio_file).
     """
     if not text or not text.strip():
         raise ValueError("Text cannot be empty")
@@ -41,7 +41,7 @@ def run_pipeline(
     path = output_path or generate_audio_filename(fmt)
     save_audio(audio, path, format=fmt)
 
-    return emotion_result.emotion, path
+    return emotion_result.emotion, emotion_result.confidence, path
 
 
 # --- Web demo HTML (inline fallback) ---
@@ -49,10 +49,10 @@ def run_pipeline(
 def _default_demo_html() -> str:
     """Default demo page HTML if static file is missing."""
     return """<!DOCTYPE html>
-<html lang="en">
+<html lang=\"en\">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset=\"UTF-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
   <title>Empathy Engine</title>
   <style>
     * { box-sizing: border-box; }
@@ -66,23 +66,62 @@ def _default_demo_html() -> str:
     #result { margin-top: 1rem; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; }
     #result .emotion { font-weight: 600; }
     audio { width: 100%; margin-top: 0.5rem; }
+    .sentiment { margin-top: 1.25rem; padding: 0.75rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb; }
+    .sentiment__label { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .sentiment__bar { position: relative; height: 18px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
+    .sentiment__fill { height: 100%; width: 0%; background: #f59e0b; transition: width 0.25s ease, background 0.25s ease; }
+    .sentiment__ticks { display: flex; justify-content: space-between; margin-top: 0.4rem; font-size: 0.75rem; color: #4b5563; }
+    .sentiment__info { margin-top: 0.4rem; font-size: 0.85rem; color: #374151; }
     .error { color: #b91c1c; }
   </style>
 </head>
 <body>
   <h1>Empathy Engine</h1>
   <p>Enter text to generate emotionally expressive speech.</p>
-  <textarea id="text" placeholder="e.g. Your order has been successfully delivered!">Your order has been successfully delivered!</textarea>
+  <textarea id=\"text\" placeholder=\"e.g. Your order has been successfully delivered!\">Your order has been successfully delivered!</textarea>
   <br>
-  <button id="btn">Generate voice</button>
-  <div id="result"></div>
+  <button id=\"btn\">Generate voice</button>
+  <div id=\"result\"></div>
+  <div id=\"sentiment\" class=\"sentiment\">
+    <div class=\"sentiment__label\">Sentiment</div>
+    <div class=\"sentiment__bar\" aria-label=\"Sentiment meter\">
+      <div class=\"sentiment__fill\" id=\"sentimentFill\"></div>
+      <div class=\"sentiment__ticks\">
+        <span class=\"tick\">Frustrated</span>
+        <span class=\"tick\">Neutral</span>
+        <span class=\"tick\">Happy</span>
+      </div>
+    </div>
+    <div id=\"sentimentInfo\" class=\"sentiment__info\"></div>
+  </div>
   <script>
     const text = document.getElementById('text');
     const btn = document.getElementById('btn');
     const result = document.getElementById('result');
+    const sentimentFill = document.getElementById('sentimentFill');
+    const sentimentInfo = document.getElementById('sentimentInfo');
+
+    function updateSentimentBar(emotion, confidence) {
+      const clamped = Math.max(0, Math.min(1, Number(confidence) || 0));
+      let percent = 50;
+      let color = '#f59e0b';
+      if (emotion === 'happy') {
+        percent = 50 + 50 * clamped;
+        color = '#16a34a';
+      } else if (emotion === 'frustrated') {
+        percent = 50 - 50 * clamped;
+        color = '#dc2626';
+      }
+      sentimentFill.style.width = percent + '%';
+      sentimentFill.style.background = color;
+      sentimentInfo.textContent = `${emotion} (${Math.round(clamped * 100)}% confidence)`;
+    }
+
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       result.innerHTML = '';
+      sentimentInfo.textContent = '';
+      updateSentimentBar('neutral', 0);
       try {
         const r = await fetch('/generate-voice', {
           method: 'POST',
@@ -91,9 +130,11 @@ def _default_demo_html() -> str:
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data.detail || 'Request failed');
-        result.innerHTML = '<span class="emotion">Emotion: ' + data.emotion + '</span><br><audio controls src="/audio/' + data.audio_file.split('/').pop() + '"></audio>';
+        const basename = data.audio_file.replace(/^.*[/\\]/, '');
+        result.innerHTML = '<span class=\"emotion\">Emotion: ' + data.emotion + '</span><br><audio controls src=\"/audio/' + basename + '\"></audio>';
+        updateSentimentBar(data.emotion, data.confidence);
       } catch (e) {
-        result.innerHTML = '<span class="error">' + e.message + '</span>';
+        result.innerHTML = '<span class=\"error\">' + e.message + '</span>';
       }
       btn.disabled = false;
     });
@@ -129,13 +170,14 @@ def create_app():
 
     class GenerateResponse(BaseModel):
         emotion: str
+        confidence: float
         audio_file: str
 
     @app.post("/generate-voice", response_model=GenerateResponse)
     def generate_voice(body: GenerateRequest):
         """Generate expressive speech from text. Returns playable .mp3 or .wav."""
         try:
-            emotion, path = run_pipeline(
+            emotion, confidence, path = run_pipeline(
                 body.text,
                 output_path=None,
                 intensity=1.0,
@@ -146,8 +188,11 @@ def create_app():
                 rel_path = path.relative_to(PROJECT_ROOT)
             except ValueError:
                 rel_path = path
+            # Emotion is a lower-case category (happy / frustrated / neutral)
+            # Confidence is returned from the emotion detector and ranges 0.0-1.0.
             return GenerateResponse(
                 emotion=emotion,
+                confidence=confidence,
                 audio_file=str(rel_path).replace("\\", "/"),
             )
         except (RuntimeError, FileNotFoundError, OSError) as e:
