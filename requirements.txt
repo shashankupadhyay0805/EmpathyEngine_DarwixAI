@@ -1,0 +1,24 @@
+# Empathy Engine — production dependencies
+
+# API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+
+# Emotion detection (primary)
+transformers>=4.35.0
+torch>=2.0.0
+accelerate>=0.24.0
+
+# Emotion detection (fallback)
+vaderSentiment>=3.3.2
+textblob>=0.17.0
+
+# TTS
+gTTS>=2.4.0
+
+# Audio processing
+pydub>=0.25.0
+
+# Optional: ElevenLabs (set TTS_ENGINE=elevenlabs and ELEVENLABS_API_KEY)
+# elevenlabs>=1.0.0
